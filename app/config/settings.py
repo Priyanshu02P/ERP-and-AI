@@ -6,15 +6,20 @@ Everything environment-specific is read from environment variables.
 """
 import os
 from pathlib import Path
+from dotenv import load_dotenv
+
 
 import dj_database_url
 from django.core.exceptions import ImproperlyConfigured
 
+load_dotenv()
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
-def env(name, default='.env'):
-    return os.environ.get(name, default)
+
+def env(name, default=None):
+    return os.getenv(name, default)
 
 
 # --------------------------------------------------------------------------- core
@@ -78,18 +83,16 @@ TEMPLATES = [
 
 # --------------------------------------------------------------------------- database (Neon)
 _db_url = env("DATABASE_URL")
-try: 
-    if env("USE_DIRECT_DB") == "1":
-        # Migrations should use Neon's direct (non-pooled) connection.
-        _db_url = env("DATABASE_URL_UNPOOLED") or _db_url
 
-    if _db_url:
-        DATABASES = {"default": dj_database_url.parse(_db_url, conn_max_age=0, ssl_require=not DEBUG)}
-        # Required with Neon's pooled (pgbouncer, transaction mode) endpoint.
-        DATABASES["default"]["DISABLE_SERVER_SIDE_CURSORS"] = True
-except Exception as e:
-    print(e)
-finally:  # local development fallback
+if env("USE_DIRECT_DB") == "1":
+    # Migrations should use Neon's direct (non-pooled) connection.
+    _db_url = env("DATABASE_URL_UNPOOLED") or _db_url
+
+if _db_url:
+    DATABASES = {"default": dj_database_url.parse(_db_url, conn_max_age=0, ssl_require=not DEBUG)}
+    # Required with Neon's pooled (pgbouncer, transaction mode) endpoint.
+    DATABASES["default"]["DISABLE_SERVER_SIDE_CURSORS"] = True
+else:  # local development fallback
     DATABASES = {"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": BASE_DIR / "db.sqlite3"}}
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
@@ -112,9 +115,9 @@ AUTH_PASSWORD_VALIDATORS = [
 # password in the DB and cannot be edited from the UI. Change these values before go-live
 # (this file is the single place they live).
 HARDCODED_ADMIN = {
-    "username": "admin",
-    "password": "Admin@12345",
-    "email": "admin@example.com",
+    "username": env("ADMIN_USERNAME"),
+    "password": env("ADMIN_PASS"),
+    "email": env("ADMIN_EMAIL"),
     "first_name": "System",
     "last_name": "Admin",
 }

@@ -3,37 +3,41 @@ Blob storage backends behind one tiny interface.
 
 * VercelBlobBackend - production. Talks to the Vercel Blob REST API with the store token.
 * LocalBackend      - development/tests. Writes under settings.BLOB_LOCAL_ROOT.
-
-NOTE: the exact REST contract of Vercel Blob (query/header names, API version) is the one
-part of this project that could not be verified offline. It is isolated in
-VercelBlobBackend; run `python manage.py blob_smoketest` against your real store once,
-and adjust `put`/`delete` here if Vercel has changed anything.
 """
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterator
+import vercel
+from vercel.blob import AsyncBlobClient
+    
+from asgiref.sync import async_to_sync
 
-import requests
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 
 
 @dataclass(frozen=True)
 class StoredBlob:
-    key: str   # pathname inside the store
-    url: str   # location returned by the store
+    key: str
+    url: str
 
 
 class BlobBackend(ABC):
     @abstractmethod
-    def put(self, key: str, data: bytes, content_type: str) -> StoredBlob: ...
+    def put(
+        self, key: str, data: bytes, content_type: str
+    ) -> StoredBlob:
+        ...
 
     @abstractmethod
-    def open(self, key: str, url: str) -> Iterator[bytes]: ...
+    def open(self, key: str, url: str) -> Iterator[bytes]:
+        ...
 
     @abstractmethod
-    def delete(self, key: str, url: str) -> None: ...
+    def delete(self, key: str, url: str) -> None:
+        ...
 
 
 class LocalBackend(BlobBackend):
@@ -42,18 +46,21 @@ class LocalBackend(BlobBackend):
 
     def _path(self, key: str) -> Path:
         path = (self.root / key).resolve()
-        if self.root not in path.parents:
+
+        if path == self.root or self.root not in path.parents:
             raise ValueError("Invalid storage key.")
+
         return path
 
     def put(self, key, data, content_type):
         path = self._path(key)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(data)
+
         return StoredBlob(key=key, url=path.as_uri())
 
     def open(self, key, url):
-        handle = self._path(key).open("rb")  # raises FileNotFoundError eagerly
+        handle = self._path(key).open("rb")
 
         def chunks():
             with handle:
@@ -67,37 +74,73 @@ class LocalBackend(BlobBackend):
 
 
 class VercelBlobBackend(BlobBackend):
-    TIMEOUT = 30
+    """Synchronous adapter around Vercel's Blob SDK."""
 
     def __init__(self):
-        if not settings.BLOB_READ_WRITE_TOKEN:
-            raise ImproperlyConfigured("BLOB_READ_WRITE_TOKEN is not set.")
-        self.base = settings.BLOB_API_URL.rstrip("/")
-        self.headers = {
-            "authorization": f"Bearer {settings.BLOB_READ_WRITE_TOKEN}",
-            "x-api-version": settings.BLOB_API_VERSION,
-        }
+        token = getattr(settings, "BLOB_READ_WRITE_TOKEN", "")
 
-    def put(self, key, data, content_type):
-        resp = requests.put(
-            f"{self.base}/", params={"pathname": key}, data=data, timeout=self.TIMEOUT,
-            headers={**self.headers, "x-content-type": content_type, "x-vercel-blob-access": "private",
-                     "x-add-random-suffix": "0"},
+        if not token:
+            raise ImproperlyConfigured(
+                "BLOB_READ_WRITE_TOKEN is not set."
+            )
+
+        try:
+            from vercel.blob import BlobClient
+        except ImportError as exc:
+            raise ImproperlyConfigured(
+                "Vercel Blob SDK is missing. Install it with: pip install vercel"
+            ) from exc
+
+        self.client = BlobClient(token=token)
+
+        self.async_client = AsyncBlobClient(token=token)
+
+    def put(self, key: str, data: bytes, content_type: str) -> StoredBlob:
+        blob = self.client.put(
+            key,
+            data,
+            access="private",
+            content_type=content_type,
+            add_random_suffix=False,
         )
-        resp.raise_for_status()
-        body = resp.json()
-        return StoredBlob(key=body.get("pathname", key), url=body["url"])
 
-    def open(self, key, url):
-        resp = requests.get(url, headers=self.headers, stream=True, timeout=self.TIMEOUT)
-        resp.raise_for_status()
-        return resp.iter_content(chunk_size=64 * 1024)
+        return StoredBlob(
+            key=blob.pathname,
+            url=blob.url,
+        )
 
-    def delete(self, key, url):
-        resp = requests.post(f"{self.base}/delete", json={"urls": [url]}, headers=self.headers, timeout=self.TIMEOUT)
-        resp.raise_for_status()
+    def open(self, key: str, url: str) -> Iterator[bytes]:
+        async def download_content() -> bytes:
+            result = await self.async_client.get(
+                url or key,
+                access="private",
+            )
+
+            if result is None or result.status_code != 200:
+                raise FileNotFoundError(f"Blob not found: {key}")
+
+            if result.content is None:
+                raise FileNotFoundError(
+                    f"Blob has no readable content: {key}"
+                )
+
+            return bytes(result.content)
+
+        content = async_to_sync(download_content)()
+
+        def chunks():
+            for offset in range(0, len(content), 64 * 1024):
+                yield content[offset:offset + 64 * 1024]
+
+        return chunks()
+
+    def delete(self, key: str, url: str) -> None:
+        self.client.delete(url or key)
 
 
 def get_backend() -> BlobBackend:
-    """Resolve the backend at call time so tests can override settings."""
-    return VercelBlobBackend() if settings.BLOB_BACKEND == "vercel" else LocalBackend()
+    """Resolve the backend at call time for test overrides."""
+    if settings.BLOB_BACKEND == "vercel":
+        return VercelBlobBackend()
+
+    return LocalBackend()
