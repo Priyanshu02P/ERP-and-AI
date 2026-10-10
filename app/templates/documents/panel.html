@@ -1,0 +1,28 @@
+{# Usage: {% include "documents/panel.html" with documents=documents owner_type="PR" owner_id=pr.pk can_attach=can_edit %} #}
+<div class="card mb-3">
+  <div class="card-header">Documents</div>
+  <ul class="list-group list-group-flush">
+    {% for d in documents %}
+    <li class="list-group-item d-flex justify-content-between align-items-center">
+      <span><a href="{% url 'documents:download' d.pk %}">{{ d.original_filename }}</a>
+        <span class="text-muted small">{{ d.size_bytes|filesizeformat }} &middot; {{ d.uploaded_by.username }} &middot; {{ d.uploaded_at|date:"d M Y H:i" }}</span></span>
+      {% if can_attach %}
+      <form method="post" action="{% url 'documents:delete' d.pk %}">{% csrf_token %}
+        <input type="hidden" name="next" value="{{ request.path }}"><button class="btn btn-sm btn-outline-danger">Remove</button></form>
+      {% endif %}
+    </li>
+    {% empty %}<li class="list-group-item text-muted">No documents yet.</li>{% endfor %}
+    {% if can_attach %}
+    <li class="list-group-item">
+      <form method="post" enctype="multipart/form-data" action="{% url 'documents:upload' %}" class="d-flex gap-2">
+        {% csrf_token %}
+        <input type="hidden" name="owner_type" value="{{ owner_type }}">
+        <input type="hidden" name="owner_id" value="{{ owner_id }}">
+        <input type="hidden" name="next" value="{{ request.path }}">
+        <input type="file" name="file" class="form-control form-control-sm" required>
+        <button class="btn btn-sm btn-primary">Upload</button>
+      </form>
+    </li>
+    {% endif %}
+  </ul>
+</div>

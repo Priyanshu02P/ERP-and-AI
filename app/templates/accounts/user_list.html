@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between"><h1 class="h4">Users &amp; roles</h1>
+  <div><a class="btn btn-primary btn-sm" href="{% url 'accounts:user_create' %}">New user</a></div></div>
+<table class="table table-sm table-hover bg-white">
+  <thead><tr><th>Username</th><th>Name</th><th>Role</th><th>Department</th><th class="num">Approval limit</th><th>Active</th><th></th></tr></thead>
+  <tbody>
+  {% for u in users %}
+    <tr><td>{{ u.username }}</td><td>{{ u.get_full_name }}</td><td>{{ u.get_role_display }}</td><td>{{ u.department|default:"" }}</td>
+      <td class="num">{{ u.approval_limit|default_if_none:"" }}</td><td>{{ u.is_active|yesno:"Yes,No" }}</td>
+      <td>{% if u.is_hardcoded_admin %}<span class="text-muted small">Built-in</span>{% else %}<a href="{% url 'accounts:user_update' u.pk %}">Edit</a>{% endif %}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

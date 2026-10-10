@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="h4">New RFQ from {{ pr.pr_number }}</h1>
+<div class="row"><div class="col-lg-7">
+<form method="post" class="card card-body">{% csrf_token %}
+  {% include "partials/form_fields.html" %}
+  <div><button class="btn btn-primary">Create draft RFQ</button> <a class="btn btn-link" href="{% url 'requisitions:pr_detail' pr.pk %}">Cancel</a></div>
+</form></div>
+<div class="col-lg-5"><div class="card"><div class="card-header">Lines copied from the PR</div><ul class="list-group list-group-flush">
+  {% for l in lines %}<li class="list-group-item">{{ l.line_no }}. {{ l.description }} <span class="text-muted">&times; {{ l.quantity|floatformat:"-3" }} {{ l.uom }}</span></li>{% endfor %}
+</ul></div></div></div>
+{% endblock %}

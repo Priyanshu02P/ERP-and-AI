@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="h4">Record quotation for {{ rfq.rfq_number }}</h1>
+<form method="post" enctype="multipart/form-data">{% csrf_token %}
+  <div class="card card-body mb-3" style="max-width:720px">{% include "partials/form_fields.html" with form=header %}</div>
+  <div class="card mb-3"><div class="card-header">Line prices <span class="text-muted small">(leave a price blank for a line the vendor did not quote)</span></div>
+    {{ formset.management_form }}
+    <table class="table table-sm mb-0"><thead><tr><th>Line</th><th style="width:150px">Unit price</th><th style="width:120px">Qty</th><th style="width:120px">Delivery days</th><th>Remarks</th></tr></thead>
+    <tbody>{% for f in formset %}<tr>{% for h in f.hidden_fields %}{{ h }}{% endfor %}
+      <td>{{ f.line_label }}</td>
+      <td>{{ f.unit_price }}{% for e in f.unit_price.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}</td>
+      <td>{{ f.quantity }}{% for e in f.quantity.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}</td>
+      <td>{{ f.delivery_days }}</td><td>{{ f.remarks }}</td></tr>{% endfor %}</tbody></table></div>
+  <button class="btn btn-primary">Save quotation</button> <a class="btn btn-link" href="{% url 'sourcing:rfq_detail' rfq.pk %}">Cancel</a>
+</form>
+{% endblock %}

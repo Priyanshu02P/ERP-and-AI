@@ -1,0 +1,43 @@
+# --- Python Byte-Compiled Files ---
+__pycache__/
+*.py[cod]
+*$py.class
+
+# --- Virtual Environments ---
+.env
+.venv
+env/
+venv/
+ENV/
+
+# --- Sensitive Configurations & Secrets ---
+.env
+local_settings.py
+
+# --- Databases ---
+*.sqlite3
+*.db
+
+# --- Django Media & Collected Statics ---
+media/
+static/
+
+# --- Logs ---
+*.log
+pip-log.txt
+
+# --- Testing & Code Coverage ---
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.pytest_cache/
+
+# --- IDEs & Code Editors ---
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp

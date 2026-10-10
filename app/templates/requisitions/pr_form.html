@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="h4">{{ title }}</h1>
+<form method="post">
+  {% csrf_token %}
+  <div class="card card-body mb-3">{% include "partials/form_fields.html" %}</div>
+  <div class="card mb-3">
+    <div class="card-header">Lines</div>
+    {{ formset.management_form }}
+    {% for e in formset.non_form_errors %}<div class="alert alert-danger m-2 py-2">{{ e }}</div>{% endfor %}
+    <table class="table table-sm mb-0">
+      <thead><tr><th>Description</th><th style="width:120px">Qty</th><th style="width:90px">UoM</th><th style="width:150px">Est. unit price</th><th>Remove</th></tr></thead>
+      <tbody>
+      {% for f in formset %}
+        <tr>{% for h in f.hidden_fields %}{{ h }}{% endfor %}
+          <td>{{ f.description }}{% for e in f.description.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}</td>
+          <td>{{ f.quantity }}{% for e in f.quantity.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}</td>
+          <td>{{ f.uom }}</td>
+          <td>{{ f.est_unit_price }}{% for e in f.est_unit_price.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}</td>
+          <td>{% if f.instance.pk %}{{ f.DELETE }}{% endif %}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <button class="btn btn-primary">Save draft</button> <a class="btn btn-link" href="{% url 'requisitions:pr_list' %}">Cancel</a>
+</form>
+{% endblock %}

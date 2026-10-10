@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% load ui %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-2">
+  <h1 class="h4 mb-0">{{ quote.quote_number }} &middot; {{ quote.vendor.name }} (rev {{ quote.revision_no }}) {{ quote.status|badge }}
+    {% if quote.is_late %}<span class="badge text-bg-danger">Late</span>{% endif %}</h1>
+  {% if can_manage and quote.status != "SUPERSEDED" %}
+  <form method="post" action="{% url 'sourcing:quotation_status' quote.pk %}" class="d-flex gap-1">{% csrf_token %}
+    {% for s in statuses %}<button name="status" value="{{ s }}" class="btn btn-sm btn-outline-secondary">{{ s|badge }}</button>{% endfor %}</form>
+  {% endif %}
+</div>
+<p class="text-muted">For <a href="{% url 'sourcing:rfq_detail' quote.rfq.pk %}">{{ quote.rfq.rfq_number }}</a> &middot; quote date {{ quote.quote_date|date:"d M Y" }}
+  {% if quote.valid_until %}&middot; valid until {{ quote.valid_until|date:"d M Y" }}{% endif %}
+  {% if quote.vendor_ref_no %}&middot; vendor ref {{ quote.vendor_ref_no }}{% endif %}
+  {% if quote.payment_terms %}&middot; {{ quote.payment_terms }}{% endif %}
+  {% if quote.lead_time_days is not None %}&middot; lead time {{ quote.lead_time_days }} days{% endif %}</p>
+<div class="row"><div class="col-lg-8"><div class="card mb-3"><table class="table table-sm mb-0">
+  <thead><tr><th>Line</th><th class="num">Qty</th><th class="num">Unit price</th><th class="num">Total</th><th>Delivery</th><th>Remarks</th></tr></thead>
+  <tbody>{% for l in lines %}<tr><td>{{ l.rfq_line.line_no }}. {{ l.rfq_line.description }}</td><td class="num">{{ l.quantity|floatformat:"-3" }}</td>
+    <td class="num">{{ l.unit_price|floatformat:2 }}</td><td class="num">{{ l.line_total|floatformat:2 }}</td><td>{{ l.delivery_days|default_if_none:"" }}</td><td>{{ l.remarks }}</td></tr>{% endfor %}</tbody>
+  <tfoot><tr><th colspan="3" class="num">Total</th><th class="num">{{ quote.total_amount|floatformat:2 }}</th><th colspan="2"></th></tr></tfoot></table></div>
+  {% if quote.notes %}<p>{{ quote.notes|linebreaksbr }}</p>{% endif %}</div>
+<div class="col-lg-4">{% include "documents/panel.html" with documents=documents owner_type="QUOTATION" owner_id=quote.pk can_attach=can_manage %}</div></div>
+{% endblock %}

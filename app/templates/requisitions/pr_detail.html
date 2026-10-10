@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% load ui %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-2">
+  <h1 class="h4 mb-0">{{ pr.pr_number }} &middot; {{ pr.title }} {{ pr.status|badge }}</h1>
+  <div class="d-flex gap-2">
+    {% if can_edit %}
+      <a class="btn btn-sm btn-outline-secondary" href="{% url 'requisitions:pr_edit' pr.pk %}">Edit</a>
+      <form method="post" action="{% url 'requisitions:pr_submit' pr.pk %}">{% csrf_token %}<button class="btn btn-sm btn-primary">Submit for approval</button></form>
+    {% endif %}
+    {% if can_cancel %}<form method="post" action="{% url 'requisitions:pr_cancel' pr.pk %}">{% csrf_token %}<button class="btn btn-sm btn-outline-danger">Cancel PR</button></form>{% endif %}
+    {% if can_create_rfq %}<a class="btn btn-sm btn-success" href="{% url 'sourcing:rfq_create' pr.pk %}">Create RFQ</a>{% endif %}
+  </div>
+</div>
+<p class="text-muted">{{ pr.department }} &middot; {{ pr.category }} &middot; requested by {{ pr.requested_by.username }}
+  {% if pr.needed_by %}&middot; needed by {{ pr.needed_by|date:"d M Y" }}{% endif %}</p>
+{% if pr.justification %}<p>{{ pr.justification|linebreaksbr }}</p>{% endif %}
+
+<div class="row">
+<div class="col-lg-8">
+  <div class="card mb-3"><div class="card-header">Lines</div>
+    <table class="table table-sm mb-0"><thead><tr><th>#</th><th>Description</th><th class="num">Qty</th><th>UoM</th><th class="num">Unit price</th><th class="num">Total</th></tr></thead>
+    <tbody>{% for l in lines %}<tr><td>{{ l.line_no }}</td><td>{{ l.description }}</td><td class="num">{{ l.quantity|floatformat:"-3" }}</td><td>{{ l.uom }}</td>
+      <td class="num">{{ l.est_unit_price|floatformat:2 }}</td><td class="num">{{ l.est_total|floatformat:2 }}</td></tr>{% endfor %}
+    </tbody><tfoot><tr><th colspan="5" class="num">Total</th><th class="num">{{ pr.total_amount|floatformat:2 }}</th></tr></tfoot></table>
+  </div>
+
+  {% if open_step %}
+  <div class="card border-warning mb-3"><div class="card-header">Your decision (level {{ open_step.level }})</div>
+    <form method="post" action="{% url 'requisitions:decide' open_step.pk %}" class="card-body">{% csrf_token %}
+      {{ decision_form.comment }}<div class="form-text mb-2">{{ decision_form.comment.help_text }}</div>
+      <button name="decision" value="APPROVED" class="btn btn-success btn-sm">Approve</button>
+      <button name="decision" value="RETURNED" class="btn btn-info btn-sm">Return for changes</button>
+      <button name="decision" value="REJECTED" class="btn btn-danger btn-sm">Reject</button>
+    </form></div>
+  {% endif %}
+
+  {% if rfqs %}<div class="card mb-3"><div class="card-header">RFQs</div><ul class="list-group list-group-flush">
+    {% for r in rfqs %}<li class="list-group-item"><a href="{% url 'sourcing:rfq_detail' r.pk %}">{{ r.rfq_number }}</a> {{ r.status|badge }}</li>{% endfor %}</ul></div>{% endif %}
+</div>
+
+<div class="col-lg-4">
+  <div class="card mb-3"><div class="card-header">Approval chain{% if pr.doa_rule %} <span class="text-muted small">({{ pr.doa_rule.name }})</span>{% endif %}</div>
+    <div class="card-body">
+    {% for cycle, steps in cycles %}
+      <div class="small text-muted mb-1">Submission {{ cycle }}</div>
+      <ul class="list-unstyled mb-3">
+      {% for s in steps %}<li class="mb-1">L{{ s.level }} {{ s.required_role }} {{ s.status|badge }}
+        {% if s.decided_by %}<div class="small text-muted">{{ s.decided_by.username }}, {{ s.decided_at|date:"d M H:i" }}{% if s.comment %} &ndash; {{ s.comment }}{% endif %}</div>{% endif %}</li>{% endfor %}
+      </ul>
+    {% empty %}<span class="text-muted">Not submitted yet.</span>{% endfor %}
+    </div></div>
+  {% include "documents/panel.html" with documents=documents owner_type="PR" owner_id=pr.pk can_attach=can_edit %}
+</div></div>
+{% endblock %}
