@@ -1,0 +1,28 @@
+{# Ranked results. Context: results (list of dicts), criteria [{code,label,weight}] #}
+{% load ui %}
+<div class="table-responsive"><table class="table table-sm align-middle bg-white mb-0">
+  <thead><tr><th>Rank</th><th>Bidder</th><th>Eligibility</th><th class="num">Landed</th><th class="num">Adjust.</th><th class="num">Evaluated cost</th>
+    {% for c in criteria %}<th class="num" title="{{ c.label }}">{{ c.code|title }}<div class="small text-muted fw-normal">{{ c.weight }}%</div></th>{% endfor %}
+    <th style="min-width:160px">Weighted score</th></tr></thead>
+  <tbody>
+  {% for r in results %}
+    <tr class="{% if r.rank == 1 %}table-success{% elif not r.eligible %}table-light text-muted{% endif %}">
+      <td>{{ r.rank|default:"-" }}</td>
+      <td><strong>{{ r.vendor }}</strong><div class="small text-muted">{{ r.quote_number }}</div></td>
+      <td class="small">
+        {% if r.eligible %}<span class="badge text-bg-success">Eligible</span>
+        {% elif r.pending_gates %}<span class="badge text-bg-secondary">Gates pending</span>
+          <ul class="mb-0 ps-3">{% for g in r.pending_gates %}<li>{{ g }}</li>{% endfor %}</ul>
+        {% else %}<span class="badge text-bg-danger">Ineligible</span>{% endif %}
+        {% if r.reasons %}<ul class="mb-0 ps-3">{% for x in r.reasons %}<li>{{ x }}</li>{% endfor %}</ul>{% endif %}
+      </td>
+      <td class="num">{{ r.landed_cost|floatformat:2 }}</td><td class="num">{{ r.adjustment|floatformat:2 }}</td><td class="num"><strong>{{ r.evaluated_cost|floatformat:2 }}</strong></td>
+      {% for sc in r.score_list %}<td class="num">{% if sc %}{{ sc|floatformat:1 }}{% else %}<span class="text-muted">{% if r.eligible %}?{% else %}-{% endif %}</span>{% endif %}</td>{% endfor %}
+      <td>{% if r.weighted_score %}
+        <div class="d-flex align-items-center gap-2"><div class="progress flex-grow-1" style="height:10px"><div class="progress-bar {% if r.rank == 1 %}bg-success{% endif %}" style="width:{{ r.weighted_score|floatformat:0 }}%"></div></div>
+        <strong>{{ r.weighted_score|floatformat:1 }}</strong></div>
+        {% elif r.eligible %}<span class="small text-muted">Missing: {{ r.missing|join:", "|lower }}</span>{% else %}-{% endif %}</td>
+    </tr>
+  {% empty %}<tr><td colspan="20" class="text-muted">No bidders.</td></tr>{% endfor %}
+  </tbody>
+</table></div>

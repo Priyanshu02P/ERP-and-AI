@@ -1,0 +1,17 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>{{ po.po_number }}</title>
+<style>body{font:14px/1.4 system-ui,Segoe UI,Arial,sans-serif;margin:32px;color:#111}table{width:100%;border-collapse:collapse;margin:16px 0}
+th,td{border-bottom:1px solid #ccc;padding:6px 8px;text-align:left}th.n,td.n{text-align:right}h1{font-size:22px;margin:0}.muted{color:#555}.box{display:flex;gap:40px;margin:16px 0}
+@media print{.noprint{display:none}}</style></head><body>
+<p class="noprint"><a href="#" onclick="window.print();return false">Print</a></p>
+<h1>Purchase Order {{ po.po_number }}</h1>
+<p class="muted">{{ po.get_status_display }}{% if po.issued_at %} &middot; issued {{ po.issued_at|date:"d M Y" }}{% endif %}</p>
+<div class="box"><div><strong>Vendor</strong><br>{{ po.vendor.name }}<br>{{ po.vendor.email }}<br>{{ po.vendor.tax_id }}</div>
+<div><strong>Buyer</strong><br>{{ po.department }}<br>Raised by {{ po.created_by.get_full_name|default:po.created_by.username }}</div>
+<div><strong>Terms</strong><br>{{ po.payment_terms|default:"-" }}<br>Delivery: {{ po.delivery_date|date:"d M Y"|default:"-" }}</div></div>
+<p><strong>{{ po.title }}</strong>{% if po.is_recurring %}<br>Recurring {{ po.get_frequency_display|lower }} order, {{ po.start_date|date:"d M Y" }} to {{ po.end_date|date:"d M Y" }} ({{ po.cycles }} releases).{% endif %}</p>
+<table><thead><tr><th>#</th><th>Description</th><th class="n">Qty</th><th>UoM</th><th class="n">Unit price</th><th class="n">Amount</th></tr></thead><tbody>
+{% for l in lines %}<tr><td>{{ l.line_no }}</td><td>{{ l.description }}</td><td class="n">{{ l.quantity|floatformat:"-3" }}</td><td>{{ l.uom }}</td><td class="n">{{ l.unit_price|floatformat:2 }}</td><td class="n">{{ l.line_total|floatformat:2 }}</td></tr>{% endfor %}
+{% if po.charges_amount %}<tr><td colspan="5" class="n">Freight, taxes &amp; other charges</td><td class="n">{{ po.charges_amount|floatformat:2 }}</td></tr>{% endif %}
+<tr><th colspan="5" class="n">Total{% if po.is_recurring %} per release{% endif %}</th><th class="n">{{ po.total_amount|floatformat:2 }}</th></tr></tbody></table>
+{% if po.notes %}<p class="muted">{{ po.notes }}</p>{% endif %}
+</body></html>

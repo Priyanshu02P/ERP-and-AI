@@ -18,3 +18,9 @@ def badge(status):
     """{{ obj.status|badge }} -> coloured pill with a humanised label."""
     color = _COLORS.get(str(status), "secondary")
     return format_html('<span class="badge text-bg-{}">{}</span>', color, str(status).replace("_", " ").title())
+
+
+@register.filter
+def get_item(mapping, key):
+    """{{ some_dict|get_item:key }} for dicts keyed by variables."""
+    return mapping.get(key, [])

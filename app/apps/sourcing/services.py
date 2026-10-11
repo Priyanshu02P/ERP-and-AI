@@ -153,6 +153,8 @@ def _create_quotation(rfq_id, vendor_id, user, header, lines) -> Quotation:
                                  delivery_days=l.get("delivery_days"), remarks=l.get("remarks", "")))
     QuotationLine.objects.bulk_create(out)
     quote.total_amount = total
+    if quote.landed_cost < 0:
+        raise WorkflowError("The discount cannot exceed the quoted total plus other charges.")
     quote.save(update_fields=["total_amount", "updated_at"])
 
     invite.status = RFQVendor.Status.RESPONDED

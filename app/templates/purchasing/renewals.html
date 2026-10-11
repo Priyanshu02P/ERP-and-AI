@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% load ui %}
+{% block content %}
+<h1 class="h4">Renewals due</h1>
+<p class="small text-muted">POs and agreements ending within {{ policy.renewal_lookahead_days }} days (or in the last 90) that have not been renewed. Renewals are RFQ-exempt unless the whole-term value rises more than {{ policy.renewal_price_tolerance_pct }}%, which needs a CPO exemption.</p>
+<table class="table table-sm bg-white"><thead><tr><th>PO</th><th>Title</th><th>Vendor</th><th>Ends</th><th>Status</th><th class="num">Commitment</th><th></th></tr></thead><tbody>
+{% for r in rows %}<tr><td><a href="{% url 'purchasing:po_detail' r.po.pk %}">{{ r.po.po_number }}</a></td><td>{{ r.po.title }}</td><td>{{ r.po.vendor.name }}</td>
+  <td>{{ r.po.end_date|date:"d M Y" }} {% if r.days_left < 0 %}<span class="badge text-bg-danger">Ended {{ r.days_left|cut:"-" }}d ago</span>{% elif r.days_left <= 14 %}<span class="badge text-bg-warning">{{ r.days_left }}d left</span>{% else %}<span class="text-muted small">{{ r.days_left }}d left</span>{% endif %}</td>
+  <td>{{ r.po.status|badge }}</td><td class="num">{{ r.po.commitment_value|floatformat:2 }}</td>
+  <td>{% if user.can_source %}<form method="post" action="{% url 'purchasing:po_renew' r.po.pk %}">{% csrf_token %}<button class="btn btn-sm btn-outline-primary">Draft renewal</button></form>{% endif %}</td></tr>
+{% empty %}<tr><td colspan="7" class="text-muted">Nothing is due for renewal.</td></tr>{% endfor %}</tbody></table>
+{% endblock %}

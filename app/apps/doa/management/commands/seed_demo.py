@@ -35,6 +35,18 @@ class Command(BaseCommand):
                 for level, role in enumerate(chain, 1):
                     DoARuleStep.objects.create(rule=rule, level=level, approver_role=role)
 
+        po_rules = [
+            ("PO up to 10k", "0", "10000", [Role.MANAGER]),
+            ("PO 10k to 100k", "10000.01", "100000", [Role.MANAGER, Role.CPO]),
+            ("PO above 100k", "100000.01", MAX, [Role.MANAGER, Role.CPO]),
+        ]
+        for name, lo, hi, chain in po_rules:
+            rule, created = DoARule.objects.get_or_create(
+                name=name, defaults={"doc_type": "PO", "min_amount": Decimal(lo), "max_amount": Decimal(hi)})
+            if created:
+                for level, role in enumerate(chain, 1):
+                    DoARuleStep.objects.create(rule=rule, level=level, approver_role=role)
+
         for username, role in [("specialist1", Role.SPECIALIST), ("manager1", Role.MANAGER), ("cpo1", Role.CPO)]:
             user, created = User.objects.get_or_create(username=username, defaults={"role": role, "department": it})
             if created:

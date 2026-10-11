@@ -22,6 +22,7 @@
       <li class="nav-item"><a class="nav-link" href="{% url 'requisitions:pr_list' %}">Requisitions</a></li>
       {% if user.can_approve %}<li class="nav-item"><a class="nav-link" href="{% url 'requisitions:inbox' %}">Approvals</a></li>{% endif %}
       <li class="nav-item"><a class="nav-link" href="{% url 'sourcing:rfq_list' %}">RFQs</a></li>
+      <li class="nav-item"><a class="nav-link" href="{% url 'purchasing:po_list' %}">Purchase orders</a></li>
       {% if user.is_admin_role %}
       <li class="nav-item"><a class="nav-link" href="{% url 'accounts:user_list' %}">Users &amp; roles</a></li>
       <li class="nav-item"><a class="nav-link" href="/manage/">Configuration</a></li>

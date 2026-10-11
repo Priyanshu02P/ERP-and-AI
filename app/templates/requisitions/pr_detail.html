@@ -9,7 +9,8 @@
       <form method="post" action="{% url 'requisitions:pr_submit' pr.pk %}">{% csrf_token %}<button class="btn btn-sm btn-primary">Submit for approval</button></form>
     {% endif %}
     {% if can_cancel %}<form method="post" action="{% url 'requisitions:pr_cancel' pr.pk %}">{% csrf_token %}<button class="btn btn-sm btn-outline-danger">Cancel PR</button></form>{% endif %}
-    {% if can_create_rfq %}<a class="btn btn-sm btn-success" href="{% url 'sourcing:rfq_create' pr.pk %}">Create RFQ</a>{% endif %}
+    {% if can_create_rfq %}<a class="btn btn-sm btn-success" href="{% url 'sourcing:rfq_create' pr.pk %}">Create RFQ</a>
+      <a class="btn btn-sm btn-outline-success" href="{% url 'purchasing:po_create' %}?pr={{ pr.pk }}" title="Direct PO without RFQ (threshold or exemption rules apply)">Direct PO (no RFQ)</a>{% endif %}
   </div>
 </div>
 <p class="text-muted">{{ pr.department }} &middot; {{ pr.category }} &middot; requested by {{ pr.requested_by.username }}

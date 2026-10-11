@@ -48,6 +48,8 @@ INSTALLED_APPS = [
     "apps.doa",
     "apps.requisitions",
     "apps.sourcing",
+    "apps.evaluation",
+    "apps.purchasing",
     "apps.documents",
 ]
 
@@ -156,3 +158,6 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = MAX_UPLOAD_BYTES + 512 * 1024
 # --------------------------------------------------------------------------- business switches
 ALLOW_MULTIPLE_RFQ_PER_PR = env("ALLOW_MULTIPLE_RFQ_PER_PR", "0") == "1"
 CRON_SECRET = env("CRON_SECRET", "")
+# Bid-comparison irregularity triggers (investigation prompts, not proof of wrongdoing)
+LOW_BID_RATIO = float(env("LOW_BID_RATIO", "0.7"))                     # flag if landed cost < 70% of the median bid
+ABOVE_ESTIMATE_TOLERANCE = float(env("ABOVE_ESTIMATE_TOLERANCE", "0.10"))  # flag if > 10% above the PR estimate

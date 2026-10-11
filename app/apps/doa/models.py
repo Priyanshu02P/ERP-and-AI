@@ -12,8 +12,15 @@ from apps.accounts.roles import APPROVER_ROLES, Role
 from apps.core.models import TimeStampedModel
 
 
+class DocType(models.TextChoices):
+    PR = "PR", "Purchase requisition"
+    PO = "PO", "Purchase order"
+
+
 class DoARule(TimeStampedModel):
     name = models.CharField(max_length=120)
+    doc_type = models.CharField(max_length=2, choices=DocType.choices, default=DocType.PR,
+                                help_text="Which document this rule approves. PO rules use the full commitment value.")
     category = models.ForeignKey("masterdata.Category", null=True, blank=True, on_delete=models.CASCADE,
                                  help_text="Empty = any category.")
     department = models.ForeignKey("masterdata.Department", null=True, blank=True, on_delete=models.CASCADE,
@@ -41,7 +48,7 @@ class DoARule(TimeStampedModel):
             raise ValidationError("Minimum amount cannot exceed maximum amount.")
         if self.is_active:
             clash = DoARule.objects.filter(
-                is_active=True, category=self.category, department=self.department,
+                is_active=True, doc_type=self.doc_type, category=self.category, department=self.department,
                 min_amount__lte=self.max_amount, max_amount__gte=self.min_amount,
             ).exclude(pk=self.pk)
             if clash.exists():

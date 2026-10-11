@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% load ui %}
+{% block title %}Evaluate {{ rfq.rfq_number }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-2">
+  <h1 class="h4 mb-0">Evaluate bids &middot; <a href="{% url 'sourcing:rfq_detail' rfq.pk %}">{{ rfq.rfq_number }}</a> {{ ev.status|badge }}</h1>
+  <a class="btn btn-sm btn-outline-secondary" href="{% url 'evaluation:compare' rfq.pk %}">View comparison</a>
+</div>
+{% if ev.review_comment %}<div class="alert alert-info py-2"><strong>Returned by {{ ev.reviewed_by.username }}:</strong> {{ ev.review_comment }}</div>{% endif %}
+{% if stale %}<div class="alert alert-warning py-2">Quotations changed since this evaluation was set up (new revision or rejected quote). Use <em>Refresh bidders</em>; scores of dropped bidders are discarded.</div>{% endif %}
+<p class="text-muted small">Step 1: confirm each mandatory gate (pass/fail). Failed or unassessed gates make a bidder ineligible. Step 2: adjust cost for documented assumptions. Step 3: score eligible bidders on the other criteria. Missing data is never scored as zero risk: leave a score blank until you have evidence.</p>
+
+<form method="post">{% csrf_token %}
+  <div class="card mb-3"><div class="card-header d-flex justify-content-between"><span>Criterion weights</span><span>Total: <strong id="wtotal">100</strong>%</span></div>
+    <div class="card-body">
+      {% for e in weights_form.non_field_errors %}<div class="alert alert-danger py-2">{{ e }}</div>{% endfor %}
+      <div class="row g-3">{% for f in weights_form %}<div class="col-6 col-md-4 col-lg-2"><label class="form-label small mb-1">{{ f.label }}</label>{{ f }}{% for e in f.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}</div>{% endfor %}</div>
+    </div></div>
+
+  <div class="card mb-3"><div class="card-header">Gates, cost adjustments and scores</div>
+  <div class="table-responsive"><table class="table table-sm table-bordered mb-0 align-top">
+    <thead class="table-light"><tr><th style="min-width:230px"></th>
+      {% for e, f in entry_forms %}<th style="min-width:230px">{{ e.quotation.vendor.name }}<div class="small fw-normal text-muted">{{ e.quotation.quote_number }} &middot; landed {{ e.quotation.landed_cost|floatformat:2 }}</div></th>{% endfor %}</tr></thead>
+    <tbody>
+    {% for row in rows %}
+      <tr><th class="fw-normal">{{ row.label }}{% if row.hint %}<div class="small text-muted">{{ row.hint }}</div>{% endif %}</th>
+      {% for cell in row.cells %}<td>{% for field in cell %}<div class="mb-1">{{ field }}{% for err in field.errors %}<div class="text-danger small">{{ err }}</div>{% endfor %}</div>{% endfor %}</td>{% endfor %}</tr>
+    {% endfor %}
+    </tbody></table></div></div>
+
+  <div class="card card-body mb-3" style="max-width:820px">{% include "partials/form_fields.html" with form=meta_form %}</div>
+
+  <div class="d-flex gap-2 mb-4">
+    <button name="action" value="save" class="btn btn-primary">Save</button>
+    <button name="action" value="submit" class="btn btn-success">Save &amp; submit for review</button>
+    <button name="action" value="refresh" class="btn btn-outline-secondary" formnovalidate onclick="return confirm('Refresh bidders? Unsaved changes on this page are lost.')">Refresh bidders</button>
+  </div>
+</form>
+
+<h2 class="h6">Current standing <span class="text-muted fw-normal">(from saved values)</span></h2>
+{% include "evaluation/_results.html" %}
+<div class="mt-4" style="max-width:720px">{% include "documents/panel.html" with documents=documents owner_type="EVALUATION" owner_id=ev.pk can_attach=can_attach %}</div>
+<script>
+  (function(){ var ins=document.querySelectorAll('.weight-input'), out=document.getElementById('wtotal');
+    function t(){ var s=0; ins.forEach(function(i){ s+=parseInt(i.value||0,10)||0; }); out.textContent=s; out.className = s===100 ? 'text-success':'text-danger'; }
+    ins.forEach(function(i){ i.addEventListener('input',t); }); t(); })();
+</script>
+{% endblock %}

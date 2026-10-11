@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% load ui %}
+{% block title %}Evaluation {{ rfq.rfq_number }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-2">
+  <h1 class="h4 mb-0">Evaluation &middot; <a href="{% url 'sourcing:rfq_detail' rfq.pk %}">{{ rfq.rfq_number }}</a> {{ ev.status|badge }}</h1>
+  <div class="d-flex gap-2">
+    <a class="btn btn-sm btn-outline-secondary" href="{% url 'evaluation:compare' rfq.pk %}">View comparison</a>
+    {% if can_edit %}<a class="btn btn-sm btn-primary" href="{% url 'evaluation:edit' rfq.pk %}">Edit evaluation</a>{% endif %}
+  </div>
+</div>
+<p class="text-muted small">Prepared by {{ ev.created_by.username }}{% if ev.submitted_by %} &middot; submitted by {{ ev.submitted_by.username }} on {{ ev.submitted_at|date:"d M Y H:i" }}{% endif %}
+  {% if ev.reviewed_by %} &middot; reviewed by {{ ev.reviewed_by.username }} on {{ ev.reviewed_at|date:"d M Y H:i" }}{% endif %}
+  {% if ev.status == "FINALIZED" %} &middot; results frozen at sign-off{% endif %}</p>
+
+{% if ev.recommended_entry %}
+<div class="card border-success mb-3"><div class="card-body">
+  <div class="small text-uppercase text-success">Recommended bidder</div>
+  <div class="h5 mb-1">{{ ev.recommended_entry.quotation.vendor.name }} <span class="text-muted fs-6">({{ ev.recommended_entry.quotation.quote_number }})</span></div>
+  {% if not_top %}<div class="alert alert-warning py-1 small">This is not the top-ranked bidder{% if top %} (top-ranked: {{ top.vendor }}){% endif %}. Check the rationale.</div>{% endif %}
+  <div>{{ ev.rationale|linebreaksbr }}</div>
+</div></div>
+{% elif ev.status == "DRAFT" %}<div class="alert alert-secondary py-2">No recommendation recorded yet.</div>{% endif %}
+
+{% include "evaluation/_results.html" %}
+<p class="small text-muted mt-2">Cost score = 100 &times; lowest eligible evaluated cost &divide; bidder's evaluated cost. Weighted score = sum of weight &times; score. Ineligible bidders are not ranked.</p>
+
+{% if ev.review_comment and ev.status != "UNDER_REVIEW" %}<div class="alert alert-info py-2"><strong>Reviewer comment:</strong> {{ ev.review_comment }}</div>{% endif %}
+
+{% if ev.status == "UNDER_REVIEW" %}
+  {% if blocker %}<div class="alert alert-secondary py-2">Awaiting review. {{ blocker }}</div>
+  {% else %}
+  <div class="card border-warning mt-3" style="max-width:720px"><div class="card-header">Your review</div>
+    <form method="post" action="{% url 'evaluation:review' rfq.pk %}" class="card-body">{% csrf_token %}
+      {{ review_form.comment }}<div class="form-text mb-2">{{ review_form.comment.help_text }}</div>
+      <button name="decision" value="FINALIZE" class="btn btn-success btn-sm">Finalise evaluation</button>
+      <button name="decision" value="RETURN" class="btn btn-warning btn-sm">Return for rework</button>
+    </form></div>
+  {% endif %}
+{% endif %}
+{% if ev.status == "FINALIZED" %}<div class="alert alert-success py-2 mt-3 d-flex justify-content-between align-items-center">
+  <span>Evaluation finalised. Raise the purchase order for the recommended bidder; its approval is the award approval.</span>
+  {% if user.can_source %}<form method="post" action="{% url 'purchasing:po_from_evaluation' ev.pk %}">{% csrf_token %}<button class="btn btn-sm btn-success">Create purchase order</button></form>{% endif %}</div>{% endif %}
+<div class="mt-4" style="max-width:720px">{% include "documents/panel.html" with documents=documents owner_type="EVALUATION" owner_id=ev.pk can_attach=False %}</div>
+{% endblock %}

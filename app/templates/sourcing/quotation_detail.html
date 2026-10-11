@@ -14,7 +14,17 @@
   {% if quote.vendor_ref_no %}&middot; vendor ref {{ quote.vendor_ref_no }}{% endif %}
   {% if quote.payment_terms %}&middot; {{ quote.payment_terms }}{% endif %}
   {% if quote.lead_time_days is not None %}&middot; lead time {{ quote.lead_time_days }} days{% endif %}</p>
-<div class="row"><div class="col-lg-8"><div class="card mb-3"><table class="table table-sm mb-0">
+<div class="row"><div class="col-lg-8">
+<div class="card mb-3"><div class="card-header">Commercial terms</div><table class="table table-sm mb-0"><tbody>
+  <tr><th>Quoted lines total</th><td class="num">{{ quote.total_amount|floatformat:2 }}</td><th>Incoterms</th><td>{{ quote.incoterms|default:"-" }}</td></tr>
+  <tr><th>Discount</th><td class="num">- {{ quote.discount_amount|floatformat:2 }}</td><th>Min. order qty</th><td>{{ quote.min_order_qty|default_if_none:"-" }}</td></tr>
+  <tr><th>Freight &amp; insurance</th><td class="num">{{ quote.freight_insurance|floatformat:2 }}</td><th>Warranty</th><td>{% if quote.warranty_months is not None %}{{ quote.warranty_months }} months{% else %}-{% endif %}</td></tr>
+  <tr><th>Taxes &amp; duties</th><td class="num">{{ quote.taxes_duties|floatformat:2 }}</td><th>Meets specs</th><td>{{ quote.meets_specs|yesno:"Yes,No,Not stated" }}</td></tr>
+  <tr><th>Setup / tooling</th><td class="num">{{ quote.setup_charges|floatformat:2 }}</td><th>Certificates</th><td>{{ quote.certificates_available|yesno:"Yes,No,Not stated" }}</td></tr>
+  <tr class="table-light"><th>Total landed cost</th><th class="num">{{ quote.landed_cost|floatformat:2 }}</th><th>Capacity confirmed</th><td>{{ quote.capacity_confirmed|yesno:"Yes,No,Not stated" }}</td></tr>
+  </tbody></table>
+  {% if quote.deviations %}<div class="card-body border-top small"><strong>Exceptions to RFQ terms:</strong> {{ quote.deviations|linebreaksbr }}</div>{% endif %}</div>
+<div class="card mb-3"><table class="table table-sm mb-0">
   <thead><tr><th>Line</th><th class="num">Qty</th><th class="num">Unit price</th><th class="num">Total</th><th>Delivery</th><th>Remarks</th></tr></thead>
   <tbody>{% for l in lines %}<tr><td>{{ l.rfq_line.line_no }}. {{ l.rfq_line.description }}</td><td class="num">{{ l.quantity|floatformat:"-3" }}</td>
     <td class="num">{{ l.unit_price|floatformat:2 }}</td><td class="num">{{ l.line_total|floatformat:2 }}</td><td>{{ l.delivery_days|default_if_none:"" }}</td><td>{{ l.remarks }}</td></tr>{% endfor %}</tbody>

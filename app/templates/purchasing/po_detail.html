@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% load ui %}
+{% block title %}{{ po.po_number }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-2 flex-wrap gap-2">
+  <h1 class="h4 mb-0">{{ po.po_number }} &middot; {{ po.title }} {{ po.status|badge }}
+    {% if po.basis %}<span class="badge text-bg-light border">{{ po.get_basis_display }}</span>{% endif %}
+    {% if po.is_recurring %}<span class="badge text-bg-info">Recurring &middot; {{ po.get_frequency_display }}</span>{% endif %}</h1>
+  <div class="d-flex gap-2 flex-wrap">
+    <a class="btn btn-sm btn-outline-secondary" href="{% url 'purchasing:po_print' po.pk %}" target="_blank">Print</a>
+    {% if can_edit %}<a class="btn btn-sm btn-outline-secondary" href="{% url 'purchasing:po_edit' po.pk %}">Edit</a>{% endif %}
+    {% if can_submit %}<form method="post" action="{% url 'purchasing:po_submit' po.pk %}">{% csrf_token %}<button class="btn btn-sm btn-primary">Submit for approval</button></form>{% endif %}
+    {% if can_operate and po.status == "APPROVED" %}<form method="post" action="{% url 'purchasing:po_issue' po.pk %}">{% csrf_token %}<button class="btn btn-sm btn-success">{% if po.is_recurring %}Activate agreement{% else %}Issue PO{% endif %}</button></form>{% endif %}
+    {% if can_operate and po.status == "ACTIVE" %}<form method="post" action="{% url 'purchasing:po_pause' po.pk %}">{% csrf_token %}<button class="btn btn-sm btn-outline-warning">Pause</button></form>{% endif %}
+    {% if can_operate and po.status == "PAUSED" %}<form method="post" action="{% url 'purchasing:po_resume' po.pk %}">{% csrf_token %}<button class="btn btn-sm btn-outline-success">Resume</button></form>{% endif %}
+    {% if can_operate and po.status == "ISSUED" or can_operate and po.status == "ACTIVE" or can_operate and po.status == "PAUSED" %}<form method="post" action="{% url 'purchasing:po_close' po.pk %}">{% csrf_token %}<button class="btn btn-sm btn-outline-secondary">{% if po.is_recurring %}End agreement{% else %}Close{% endif %}</button></form>{% endif %}
+    {% if can_operate and not po.parent_id and po.status in "ISSUED ACTIVE PAUSED CLOSED" and not renewal %}<form method="post" action="{% url 'purchasing:po_renew' po.pk %}">{% csrf_token %}<button class="btn btn-sm btn-outline-primary">Renew</button></form>{% endif %}
+  </div>
+</div>
+<p class="text-muted">{{ po.vendor.name }} &middot; {{ po.department }} &middot; {{ po.category }} &middot; created by {{ po.created_by.username }}
+  {% if po.payment_terms %}&middot; {{ po.payment_terms }}{% endif %}{% if po.delivery_date %}&middot; delivery {{ po.delivery_date|date:"d M Y" }}{% endif %}</p>
+
+{% if po.exemption_required %}<div class="alert alert-warning py-2"><strong>Sourcing exemption required.</strong> {{ po.sourcing_notes }}
+  {% if po.exemption_reason %}<div class="mt-1"><em>Reason given:</em> {{ po.exemption_reason }}</div>{% endif %}</div>{% endif %}
+{% if preview %}<div class="alert alert-{% if preview.needs_exemption %}warning{% else %}light border{% endif %} py-2 small">
+  <strong>If submitted now:</strong> {{ preview_label }} &mdash;
+  {% if preview.needs_exemption %}needs a CPO-approved sourcing exemption. {% for n in preview.notes %}{{ n }}.{% endfor %}
+  {% elif preview.basis == "DIRECT_BELOW_THRESHOLD" %}no RFQ needed (aggregate {{ preview.aggregate|floatformat:2 }} &le; threshold {{ preview.threshold|floatformat:2 }}).
+  {% else %}no exemption needed.{% endif %}</div>{% endif %}
+{% if po.justification %}<p><strong>Justification:</strong> {{ po.justification|linebreaksbr }}</p>{% endif %}
+
+<div class="row"><div class="col-lg-8">
+  <div class="card mb-3"><div class="card-header">Lines</div>
+    <table class="table table-sm mb-0"><thead><tr><th>#</th><th>Description</th><th class="num">Qty</th><th>UoM</th><th class="num">Unit price</th><th class="num">Total</th></tr></thead>
+    <tbody>{% for l in lines %}<tr><td>{{ l.line_no }}</td><td>{{ l.description }}</td><td class="num">{{ l.quantity|floatformat:"-3" }}</td><td>{{ l.uom }}</td><td class="num">{{ l.unit_price|floatformat:2 }}</td><td class="num">{{ l.line_total|floatformat:2 }}</td></tr>{% endfor %}</tbody>
+    <tfoot>{% if po.charges_amount %}<tr><td colspan="5" class="num">Freight, taxes &amp; other charges (net)</td><td class="num">{{ po.charges_amount|floatformat:2 }}</td></tr>{% endif %}
+      <tr><th colspan="5" class="num">{% if po.is_recurring %}Per release{% else %}Total{% endif %}</th><th class="num">{{ po.total_amount|floatformat:2 }}</th></tr>
+      {% if po.is_recurring %}<tr><th colspan="5" class="num">Whole-term commitment ({{ po.cycles }} releases)</th><th class="num">{{ po.commitment_value|floatformat:2 }}</th></tr>{% endif %}</tfoot></table></div>
+
+  {% if open_step %}
+  <div class="card border-warning mb-3"><div class="card-header">Your decision (level {{ open_step.level }}){% if open_step.covers_exemption %} &middot; <span class="text-warning-emphasis">includes granting the sourcing exemption</span>{% endif %}</div>
+    <form method="post" action="{% url 'purchasing:decide' open_step.pk %}" class="card-body">{% csrf_token %}
+      {{ decision_form.comment }}<div class="form-text mb-2">{{ decision_form.comment.help_text }}</div>
+      <button name="decision" value="APPROVED" class="btn btn-success btn-sm">Approve</button>
+      <button name="decision" value="RETURNED" class="btn btn-info btn-sm">Return for changes</button>
+      <button name="decision" value="REJECTED" class="btn btn-danger btn-sm">Reject</button></form></div>
+  {% endif %}
+
+  {% if po.is_recurring %}
+  <div class="card mb-3"><div class="card-header">Recurring schedule</div><div class="card-body small">
+    {{ po.get_frequency_display }} from {{ po.start_date|date:"d M Y" }} to {{ po.end_date|date:"d M Y" }} &middot; {{ po.releases.count }} of {{ po.cycles }} releases generated.
+    {% if upcoming %}<div class="mt-1"><strong>Next:</strong> {% for d in upcoming %}{{ d|date:"d M Y" }}{% if not forloop.last %}, {% endif %}{% endfor %}</div>{% endif %}
+    {% if po.status == "APPROVED" %}<div class="text-muted mt-1">Releases start once the agreement is activated.</div>{% endif %}</div>
+    {% if releases %}<table class="table table-sm mb-0"><thead><tr><th>Release</th><th>Scheduled</th><th class="num">Total</th><th>Status</th></tr></thead>
+      <tbody>{% for r in releases %}<tr><td><a href="{% url 'purchasing:po_detail' r.pk %}">{{ r.po_number }}</a></td><td>{{ r.scheduled_for|date:"d M Y" }}</td><td class="num">{{ r.total_amount|floatformat:2 }}</td><td>{{ r.status|badge }}</td></tr>{% endfor %}</tbody></table>{% endif %}
+  </div>{% endif %}
+
+  {% if can_cancel_early or can_cancel_late %}
+  <form method="post" action="{% url 'purchasing:po_cancel' po.pk %}" class="d-flex gap-2 mb-3">{% csrf_token %}
+    <input name="reason" class="form-control form-control-sm" style="max-width:360px" placeholder="Reason{% if can_cancel_late %} (required once approved){% endif %}">
+    <button class="btn btn-sm btn-outline-danger">Cancel PO</button></form>
+  {% endif %}
+</div>
+
+<div class="col-lg-4">
+  <div class="card mb-3"><div class="card-header">Source</div><ul class="list-group list-group-flush small">
+    {% if po.pr %}<li class="list-group-item">PR: <a href="{% url 'requisitions:pr_detail' po.pr.pk %}">{{ po.pr.pr_number }}</a></li>{% endif %}
+    {% if po.evaluation %}<li class="list-group-item">Evaluation: <a href="{% url 'evaluation:detail' po.evaluation.rfq_id %}">{{ po.evaluation.rfq.rfq_number }}</a>{% if po.quotation %} &middot; <a href="{% url 'sourcing:quotation_detail' po.quotation.pk %}">{{ po.quotation.quote_number }}</a>{% endif %}</li>{% endif %}
+    {% if po.renewal_of %}<li class="list-group-item">Renews: <a href="{% url 'purchasing:po_detail' po.renewal_of.pk %}">{{ po.renewal_of.po_number }}</a></li>{% endif %}
+    {% if renewal %}<li class="list-group-item">Renewed by: <a href="{% url 'purchasing:po_detail' renewal.pk %}">{{ renewal.po_number }}</a> {{ renewal.status|badge }}</li>{% endif %}
+    {% if po.parent %}<li class="list-group-item">Agreement: <a href="{% url 'purchasing:po_detail' po.parent.pk %}">{{ po.parent.po_number }}</a></li>{% endif %}
+    {% if not po.pr and not po.evaluation and not po.renewal_of and not po.parent %}<li class="list-group-item text-muted">Direct purchase</li>{% endif %}</ul></div>
+  <div class="card mb-3"><div class="card-header">Approval chain{% if po.doa_rule %} <span class="text-muted small">({{ po.doa_rule.name }})</span>{% endif %}</div><div class="card-body">
+    {% for cycle, steps in cycles %}<div class="small text-muted mb-1">Submission {{ cycle }}</div><ul class="list-unstyled mb-3">
+      {% for s in steps %}<li class="mb-1">L{{ s.level }} {{ s.required_role }} {{ s.status|badge }}{% if s.covers_exemption %} <span class="badge text-bg-warning">Exemption</span>{% endif %}
+        {% if s.decided_by %}<div class="small text-muted">{{ s.decided_by.username }}, {{ s.decided_at|date:"d M H:i" }}{% if s.comment %} &ndash; {{ s.comment }}{% endif %}</div>{% endif %}</li>{% endfor %}</ul>
+    {% empty %}<span class="text-muted">{% if po.parent_id %}Pre-authorised under the agreement.{% else %}Not submitted yet.{% endif %}</span>{% endfor %}</div></div>
+  {% include "documents/panel.html" with documents=documents owner_type="PO" owner_id=po.pk can_attach=can_operate %}
+</div></div>
+{% endblock %}

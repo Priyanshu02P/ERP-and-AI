@@ -17,7 +17,8 @@
     <tbody>{% for l in lines %}<tr><td>{{ l.line_no }}</td><td>{{ l.description }}</td><td class="num">{{ l.quantity|floatformat:"-3" }}</td><td>{{ l.uom }}</td></tr>{% endfor %}</tbody></table></div>
 
   <div class="card mb-3"><div class="card-header d-flex justify-content-between"><span>Quotations</span>
-    {% if can_record %}<a href="{% url 'sourcing:quotation_create' rfq.pk %}" class="btn btn-sm btn-primary">Record quotation</a>{% endif %}</div>
+    <span class="d-flex gap-2">{% if quotes %}<a href="{% url 'evaluation:compare' rfq.pk %}" class="btn btn-sm btn-outline-primary">Compare &amp; evaluate bids</a>{% endif %}
+    {% if can_record %}<a href="{% url 'sourcing:quotation_create' rfq.pk %}" class="btn btn-sm btn-primary">Record quotation</a>{% endif %}</span></div>
     <table class="table table-sm mb-0"><thead><tr><th>Quote</th><th>Vendor</th><th>Rev</th><th class="num">Total</th><th>Status</th></tr></thead>
     <tbody>{% for q in quotes %}<tr><td><a href="{% url 'sourcing:quotation_detail' q.pk %}">{{ q.quote_number }}</a></td><td>{{ q.vendor.name }}</td><td>{{ q.revision_no }}</td>
       <td class="num">{{ q.total_amount|floatformat:2 }}</td><td>{{ q.status|badge }}{% if q.is_late %} <span class="badge text-bg-danger">Late</span>{% endif %}</td></tr>

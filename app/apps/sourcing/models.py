@@ -66,6 +66,9 @@ class QuotationStatus(models.TextChoices):
     SUPERSEDED = "SUPERSEDED", "Superseded"
 
 
+INCOTERMS = [(c, c) for c in ("EXW", "FCA", "FOB", "CIF", "CIP", "DAP", "DDP")]
+
+
 class Quotation(TimeStampedModel):
     quote_number = models.CharField(max_length=30, unique=True, editable=False)
     rfq = models.ForeignKey(RFQ, on_delete=models.PROTECT, related_name="quotations")
@@ -82,11 +85,35 @@ class Quotation(TimeStampedModel):
     entered_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
     notes = models.TextField(blank=True)
 
+    # ---- commercial terms (feed the bid comparison and evaluation pages)
+    discount_amount = models.DecimalField(max_digits=18, decimal_places=2, default=0)
+    freight_insurance = models.DecimalField(max_digits=18, decimal_places=2, default=0)
+    taxes_duties = models.DecimalField("Taxes and duties", max_digits=18, decimal_places=2, default=0,
+                                       help_text="Non-recoverable taxes/duties only.")
+    setup_charges = models.DecimalField("Tooling / setup charges", max_digits=18, decimal_places=2, default=0)
+    incoterms = models.CharField(max_length=3, choices=INCOTERMS, blank=True, default="")
+    min_order_qty = models.DecimalField("Minimum order quantity", max_digits=18, decimal_places=3, null=True, blank=True)
+    warranty_months = models.PositiveSmallIntegerField(null=True, blank=True)
+    # Vendor claims. None = not stated (treated as UNKNOWN, never as "yes").
+    meets_specs = models.BooleanField("Meets all mandatory specifications", null=True, blank=True)
+    certificates_available = models.BooleanField("Required certificates available", null=True, blank=True)
+    capacity_confirmed = models.BooleanField("Capacity confirmed for required quantity", null=True, blank=True)
+    deviations = models.TextField("Exceptions to RFQ terms", blank=True, default="")
+
+    @property
+    def landed_cost(self):
+        """Quoted lines - discount + freight/insurance + non-recoverable taxes + setup. Excludes evaluator adjustments."""
+        return (self.total_amount - self.discount_amount + self.freight_insurance
+                + self.taxes_duties + self.setup_charges)
+
     class Meta:
         ordering = ["rfq", "vendor", "-revision_no"]
         constraints = [
             models.UniqueConstraint(fields=["rfq", "vendor", "revision_no"], name="quotation_revision_unique"),
             models.CheckConstraint(condition=models.Q(total_amount__gte=0), name="quotation_total_nonneg"),
+            models.CheckConstraint(
+                condition=models.Q(discount_amount__gte=0, freight_insurance__gte=0, taxes_duties__gte=0, setup_charges__gte=0),
+                name="quotation_charges_nonneg"),
         ]
         indexes = [models.Index(fields=["rfq", "vendor"])]
 

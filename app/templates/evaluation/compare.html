@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% load ui %}
+{% block title %}Bid comparison {{ rfq.rfq_number }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-2">
+  <h1 class="h4 mb-0">Bid comparison &middot; <a href="{% url 'sourcing:rfq_detail' rfq.pk %}">{{ rfq.rfq_number }}</a> {{ rfq.status|badge }}</h1>
+  <div class="d-flex gap-2">
+    {% if evaluation %}<a class="btn btn-sm btn-primary" href="{% if evaluation.status == 'DRAFT' and user.can_source %}{% url 'evaluation:edit' rfq.pk %}{% else %}{% url 'evaluation:detail' rfq.pk %}{% endif %}">Open evaluation {{ evaluation.status|badge }}</a>{% endif %}
+    {% if can_start %}<form method="post" action="{% url 'evaluation:start' rfq.pk %}">{% csrf_token %}<button class="btn btn-sm btn-success">Start evaluation</button></form>{% endif %}
+  </div>
+</div>
+<p class="text-muted">{{ rfq.title }} &middot; PR estimate <strong>{{ cmp.estimate|floatformat:2 }}</strong>
+  {% if cmp.lowest_landed is not None %}&middot; lowest comparable landed cost <strong>{{ cmp.lowest_landed|floatformat:2 }}</strong>{% endif %}</p>
+{% if needs_close %}<div class="alert alert-info py-2">Bids are still open. Close the RFQ for responses on the RFQ page to start a formal evaluation.</div>{% endif %}
+{% for f in cmp.rfq_flags %}<div class="alert alert-{{ f.level }} py-2">{{ f.text }}</div>{% endfor %}
+<div class="alert alert-light border small py-2">The lowest quotation is not necessarily the lowest cost or lowest risk. Flags below are prompts to investigate, not proof of an irregularity.</div>
+
+{% if cmp.quotes %}
+<div class="card mb-4"><div class="card-header">Side-by-side comparison <span class="text-muted small">(current revision per vendor)</span></div>
+<div class="table-responsive"><table class="table table-sm table-bordered mb-0 align-middle">
+  <thead class="table-light"><tr><th style="min-width:230px"></th>
+    {% for q in cmp.quotes %}<th style="min-width:170px"><a href="{% url 'sourcing:quotation_detail' q.pk %}">{{ q.vendor.name }}</a>
+      <div class="small fw-normal text-muted">{{ q.quote_number }} {{ q.status|badge }}{% if q.is_late %} <span class="badge text-bg-danger">Late</span>{% endif %}</div></th>{% endfor %}</tr>
+    <tr><td class="small text-muted">Flags</td>
+    {% for q in cmp.quotes %}<td class="small">{% for f in cmp.flags|get_item:q.pk %}<div><span class="badge text-bg-{{ f.level }}" title="{{ f.text }}">{{ f.code|title }}</span> <span class="text-muted">{{ f.text }}</span></div>{% empty %}<span class="text-muted">None</span>{% endfor %}</td>{% endfor %}</tr>
+  </thead>
+  <tbody>
+  {% regroup cmp.rows by group as groups %}
+  {% for g in groups %}
+    <tr class="table-secondary"><th colspan="{{ cmp.quotes|length|add:1 }}" class="small text-uppercase">{{ g.grouper }}</th></tr>
+    {% for row in g.list %}
+    <tr {% if row.label == "Total landed cost" %}class="fw-bold"{% endif %}><th class="fw-normal">{{ row.label }}</th>
+      {% for c, best in row.pairs %}
+      <td class="{% if row.kind == 'money' or row.kind == 'number' or row.kind == 'pct' %}num{% endif %} {% if best %}table-success{% endif %}">
+        {% if row.kind == "money" %}{{ c|floatformat:2 }}
+        {% elif row.kind == "pct" %}{% if c is None %}-{% elif c == 0 %}lowest{% else %}+{{ c }}%{% endif %}
+        {% elif row.kind == "number" %}{% if c is None %}-{% else %}{{ c|floatformat:"-3" }}{% endif %}
+        {% elif row.kind == "date" %}{% if c %}{{ c|date:"d M Y" }}{% if c < today %} <span class="badge text-bg-danger">Expired</span>{% endif %}{% else %}-{% endif %}
+        {% elif row.kind == "tri" %}{% if c is True %}<span class="text-success">&#10003; Yes</span>{% elif c is False %}<span class="text-danger">&#10007; No</span>{% else %}<span class="text-muted">? Not stated</span>{% endif %}
+        {% elif row.kind == "docs" %}{% for d in c %}<div><a href="{% url 'documents:download' d.pk %}">{{ d.original_filename }}</a></div>{% empty %}<span class="text-muted">-</span>{% endfor %}
+        {% else %}{{ c|default:"-"|linebreaksbr }}{% endif %}
+      </td>{% endfor %}
+    </tr>
+    {% endfor %}
+  {% endfor %}
+  </tbody>
+</table></div></div>
+
+<div class="card mb-4"><div class="card-header">Unit price by line <span class="text-muted small">(lowest highlighted; blank = vendor did not quote the line)</span></div>
+<div class="table-responsive"><table class="table table-sm table-bordered mb-0">
+  <thead class="table-light"><tr><th>Line</th><th class="num">Qty</th>{% for q in cmp.quotes %}<th class="num">{{ q.vendor.name }}</th>{% endfor %}</tr></thead>
+  <tbody>{% for lr in cmp.line_rows %}<tr><td>{{ lr.line.line_no }}. {{ lr.line.description }}</td><td class="num">{{ lr.line.quantity|floatformat:"-3" }} {{ lr.line.uom }}</td>
+    {% for c in lr.cells %}<td class="num {% if c.best %}table-success{% endif %}">{% if c.ql %}{{ c.ql.unit_price|floatformat:2 }}<div class="small text-muted">{{ c.ql.line_total|floatformat:2 }}{% if c.ql.delivery_days is not None %} &middot; {{ c.ql.delivery_days }}d{% endif %}</div>{% else %}<span class="text-muted">&mdash;</span>{% endif %}</td>{% endfor %}</tr>{% endfor %}</tbody>
+</table></div></div>
+{% endif %}
+{% endblock %}

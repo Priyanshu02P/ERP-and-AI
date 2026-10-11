@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <h1 class="h4">Waiting for your approval</h1>
+<ul class="nav nav-pills mb-3 small"><li class="nav-item"><a class="nav-link active" href="#">Requisitions</a></li><li class="nav-item"><a class="nav-link" href="{% url 'purchasing:inbox' %}">Purchase orders</a></li></ul>
 <table class="table table-sm table-hover bg-white">
   <thead><tr><th>PR</th><th>Title</th><th>Department</th><th class="num">Total</th><th>Requester</th><th>Level</th><th>Submitted</th></tr></thead>
   <tbody>

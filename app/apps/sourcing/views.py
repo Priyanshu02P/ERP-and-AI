@@ -121,7 +121,7 @@ def quotation_create(request, rfq_id):
         try:
             quote = services.record_quotation(
                 rfq.pk, h["vendor"].pk, request.user,
-                {k: h[k] for k in ("vendor_ref_no", "quote_date", "valid_until", "payment_terms", "lead_time_days", "notes")},
+                {k: h[k] for k in QuotationHeaderForm.MODEL_FIELDS},
                 lines, upload=h.get("file"))
             messages.success(request, f"{quote.quote_number} recorded" + (" (marked late)." if quote.is_late else "."))
             return redirect("sourcing:quotation_detail", pk=quote.pk)

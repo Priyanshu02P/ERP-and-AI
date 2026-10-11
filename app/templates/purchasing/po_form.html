@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="h4">{{ title }}</h1>
+<div class="alert alert-light border small py-2">
+  <strong>No RFQ needed</strong> when the whole-term value (plus recent orders to the same vendor and category within {{ policy.aggregation_window_days }} days) is
+  <strong>{{ policy.direct_po_threshold|floatformat:2 }}</strong> or less. Above that, record an exemption reason; a CPO must approve it. A business justification is always required.
+</div>
+<form method="post">{% csrf_token %}
+  <div class="card card-body mb-3">
+    {% for e in form.non_field_errors %}<div class="alert alert-danger py-2">{{ e }}</div>{% endfor %}
+    <div class="row">
+      {% for field in form.visible_fields %}
+      <div class="col-md-6 mb-3 {% if field.name in 'frequency start_date end_date' %}sched{% endif %}">
+        <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}
+        {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+        {% for e in field.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+      </div>{% endfor %}
+    </div>
+  </div>
+  <div class="card mb-3"><div class="card-header">Lines <span class="text-muted small">(for a recurring agreement: the items ordered in <em>each</em> release)</span></div>
+    {{ formset.management_form }}
+    {% for e in formset.non_form_errors %}<div class="alert alert-danger m-2 py-2">{{ e }}</div>{% endfor %}
+    <table class="table table-sm mb-0"><thead><tr><th>Description</th><th style="width:120px">Qty</th><th style="width:90px">UoM</th><th style="width:150px">Unit price</th><th>Remove</th></tr></thead>
+    <tbody>{% for f in formset %}<tr>{% for h in f.hidden_fields %}{{ h }}{% endfor %}
+      <td>{{ f.description }}{% for e in f.description.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}</td>
+      <td>{{ f.quantity }}{% for e in f.quantity.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}</td><td>{{ f.uom }}</td>
+      <td>{{ f.unit_price }}{% for e in f.unit_price.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}</td>
+      <td>{% if f.instance.pk %}{{ f.DELETE }}{% endif %}</td></tr>{% endfor %}</tbody></table></div>
+  <button class="btn btn-primary">Save draft</button> <a class="btn btn-link" href="{% url 'purchasing:po_list' %}">Cancel</a>
+</form>
+<script>
+  (function(){ var box=document.getElementById('id_is_recurring'), rows=document.querySelectorAll('.sched');
+    function t(){ rows.forEach(function(r){ r.style.display = box.checked ? '' : 'none'; }); }
+    box.addEventListener('change', t); t(); })();
+</script>
+{% endblock %}

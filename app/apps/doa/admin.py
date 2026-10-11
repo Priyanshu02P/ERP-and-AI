@@ -10,6 +10,6 @@ class DoARuleStepInline(admin.TabularInline):
 
 @admin.register(DoARule)
 class DoARuleAdmin(admin.ModelAdmin):
-    list_display = ("name", "category", "department", "min_amount", "max_amount", "priority", "is_active")
-    list_filter = ("is_active", "category", "department")
+    list_display = ("name", "doc_type", "category", "department", "min_amount", "max_amount", "priority", "is_active")
+    list_filter = ("doc_type", "is_active", "category", "department")
     inlines = [DoARuleStepInline]
